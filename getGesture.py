@@ -1,12 +1,31 @@
 import cv2
+import imutils
 
 background = None
 
 # размеры для ROI
-ROI_top = 100
-ROI_bottom = 300
-ROI_right = 150
-ROI_left = 350
+ROI_TOP = 100
+ROI_BOTTOM = 400
+ROI_RIGHT = 550
+ROI_LEFT = 850
+
+AMBER_COLOR = (0, 191, 255)
+BLUE_COLOR = (255, 191, 0)
+RED_COLOR = (0, 0, 255)
+GREEN_COLOR = (0, 255, 0)
+
+NUM_IMG_POSITION = (10, 30)
+TEXT_TOP_POSITION = (50, 30)
+FONT_SCALE = 0.5
+TEXT_THICKNESS = 1
+
+PATH_TO_SAVE = "resources/train/"
+WINDOW_WIDTH = 1020
+THICKNESS_CONTOUR = 1
+CONTOUR_IDX = -1
+RECTANGLE_THICKNESS = 3
+
+elements = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 
 # путём вычисления накопленного веса для некоторых кадров (для 60 кадров), вычисляем накопленное среднее для фона
@@ -26,8 +45,8 @@ def segment_hand(frame, threshold=25):
     diff = cv2.absdiff(background.astype("uint8"), frame)
     _, thresholded = cv2.threshold(diff, threshold, 255, cv2.THRESH_BINARY)
     # захватить внешние контуры для изображения
-    image, contours, hierarchy = cv2.findContours(thresholded.copy(),
-                                                  cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv2.findContours(thresholded.copy(),
+                                           cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if len(contours) == 0:
         return None
     else:
@@ -35,49 +54,36 @@ def segment_hand(frame, threshold=25):
         return thresholded, hand_segment_max_cont
 
 
-# рука присутствует в зоне охвата, можно сохранять изображение зоны охвата в обучающий и тестовый набор
+# воспроизведение видео для сегментации руки
 def video_capture():
-    cam = cv2.VideoCapture(0)
     num_frames = 0
-    element = 10
     num_imgs_taken = 0
-    savedPath = "..\\resourses\\train\\"
+
+    camera = cv2.VideoCapture(0)
+    if camera is None or not camera.isOpened():
+        print("Предупреждение: невозможно открыть источник видео")
+        return
 
     while True:
-        ret, frame = cam.read()
+        ret, frame = camera.read()
+        frame = imutils.resize(frame, width=WINDOW_WIDTH)
         # переворачивание кадра для предотвращения перевернутого изображения захваченного кадра
         frame = cv2.flip(frame, 1)
         frame_copy = frame.copy()
-        roi = frame[ROI_top:ROI_bottom, ROI_right:ROI_left]
+        roi = frame[ROI_TOP:ROI_BOTTOM, ROI_RIGHT:ROI_LEFT]
         gray_frame = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
         gray_frame = cv2.GaussianBlur(gray_frame, (9, 9), 0)
+
         if num_frames < 60:
             calc_accumulated_avg(gray_frame)
-            if num_frames <= 59:
-                cv2.putText(frame_copy, "Определение фона... пожалуйста, подождите",
-                            (80, 400), cv2.FONT_HERSHEY_COMPLEX, 0.9, (0, 0, 255), 2)
-
-        # настроить определение руки конкретно в ROI
-        elif num_frames <= 300:
-            hand = segment_hand(gray_frame)
-
+            cv2.putText(frame_copy, "Определение фона... пожалуйста, подождите",
+                        TEXT_TOP_POSITION, cv2.FONT_HERSHEY_COMPLEX, FONT_SCALE, AMBER_COLOR, TEXT_THICKNESS)
+        elif num_frames >= 100:
+            element = elements[0]
             cv2.putText(frame_copy, "Жест для " +
-                        str(element), (200, 400), cv2.FONT_HERSHEY_COMPLEX, 1,
-                        (0, 0, 255), 2)
+                        str(element), TEXT_TOP_POSITION, cv2.FONT_HERSHEY_COMPLEX, FONT_SCALE,
+                        AMBER_COLOR, TEXT_THICKNESS)
 
-            # проверка факта обнаружения руки путем подсчета количества обнаруженных контуров
-            if hand is not None:
-                thresholded, hand_segment = hand
-                # нарисовать контуры вокруг сегмента руки
-                cv2.drawContours(frame_copy, [hand_segment + (ROI_right,
-                                                              ROI_top)], -1, (255, 0, 0), 1)
-
-                cv2.putText(frame_copy, str(num_frames) + "для" + str(element),
-                            (70, 45), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
-                # отобразим пороговое изображение
-                cv2.imshow("Пороговое изображение руки", thresholded)
-
-        else:
             # сегментирование области руки
             hand = segment_hand(gray_frame)
 
@@ -86,39 +92,32 @@ def video_capture():
                 # распаковать пороговое изображение и контур max_contour
                 thresholded, hand_segment = hand
                 # нарисовать контуры вокруг сегмента руки
-                cv2.drawContours(frame_copy, [hand_segment + (ROI_right,
-                                                              ROI_top)], -1, (255, 0, 0), 1)
-
-                cv2.putText(frame_copy, str(num_frames), (70, 45),
-                            cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
-
-                cv2.putText(frame_copy, str(num_imgs_taken) + 'images' + "для"
-                            + str(element), (200, 400), cv2.FONT_HERSHEY_COMPLEX, 1,
-                            (0, 0, 255), 2)
+                cv2.drawContours(frame_copy, [hand_segment + (ROI_RIGHT,
+                                                              ROI_TOP)], CONTOUR_IDX, RED_COLOR, THICKNESS_CONTOUR)
                 # отображение порогового изображения
-                cv2.imshow("Пороговое изображение руки", thresholded)
-                if num_imgs_taken <= 300:
-                    cv2.imwrite(savedPath + str(element) + "\\" +
-                                str(num_imgs_taken + 300) + '.jpg', thresholded)
-                else:
-                    break
+                cv2.imshow("Thresholded Hand Image", thresholded)
+
+                # рука присутствует в зоне охвата, можно сохранять изображение зоны охвата в обучающий и тестовый набор
+                cv2.imwrite(PATH_TO_SAVE + element + '/' + str(num_imgs_taken) + '.jpg', thresholded)
                 num_imgs_taken += 1
             else:
-                cv2.putText(frame_copy, 'Рука не обнаружена', (200, 400),
-                            cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
-        # Нарисовать ROI на копии кадра
-        cv2.rectangle(frame_copy, (ROI_left, ROI_top), (ROI_right, ROI_bottom), (255, 128, 0), 3)
+                cv2.putText(frame_copy, 'Рука не обнаружена', TEXT_TOP_POSITION,
+                            cv2.FONT_HERSHEY_COMPLEX, FONT_SCALE, RED_COLOR, TEXT_THICKNESS)
 
-        cv2.putText(frame_copy, "Распознавание жеста ", (10, 20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (51, 255, 51), 1)
+        cv2.putText(frame_copy, str(num_frames), NUM_IMG_POSITION,
+                    cv2.FONT_HERSHEY_COMPLEX, FONT_SCALE, GREEN_COLOR, TEXT_THICKNESS)
+
+        # Нарисовать ROI на копии кадра
+        cv2.rectangle(frame_copy, (ROI_LEFT, ROI_TOP), (ROI_RIGHT, ROI_BOTTOM), BLUE_COLOR, RECTANGLE_THICKNESS)
 
         # увеличить количество кадров для отслеживания
         num_frames += 1
         # отобразить кадр с сегментированной рукой
-        cv2.imshow("Обнаружение жеста", frame_copy)
+        cv2.imshow("Video", frame_copy)
         # закрытие окон с помощью клавиши Esc (можно использовать и любую другую клавишу с ord)
         k = cv2.waitKey(1) & 0xFF
         if k == 27:
             break
-    # освобождение камеры и разрушение всех окон
+        # освобождение камеры и разрушение всех окон
     cv2.destroyAllWindows()
-    cam.release()
+    camera.release()
