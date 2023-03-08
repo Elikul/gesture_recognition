@@ -19,7 +19,7 @@ TEXT_TOP_POSITION = (50, 30)
 FONT_SCALE = 0.5
 TEXT_THICKNESS = 1
 
-PATH_TO_SAVE = "resources/train/"
+PATH_TO_SAVE = "resources/test/"
 WINDOW_WIDTH = 1020
 THICKNESS_CONTOUR = 1
 CONTOUR_IDX = -1
@@ -79,7 +79,7 @@ def video_capture():
             cv2.putText(frame_copy, "Определение фона... пожалуйста, подождите",
                         TEXT_TOP_POSITION, cv2.FONT_HERSHEY_COMPLEX, FONT_SCALE, AMBER_COLOR, TEXT_THICKNESS)
         elif num_frames >= 100:
-            element = elements[0]
+            element = elements[4]
             cv2.putText(frame_copy, "Жест для " +
                         str(element), TEXT_TOP_POSITION, cv2.FONT_HERSHEY_COMPLEX, FONT_SCALE,
                         AMBER_COLOR, TEXT_THICKNESS)
