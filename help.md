@@ -81,7 +81,12 @@
 15. cv2.waitKey([, delay]) - ожидает ключевого события бесконечно (когда delay≤0) или в течение миллисекунд, когда delay положителен. (https://docs.opencv.org/4.x/d7/dfc/group__highgui.html#ga5628525ad33f52eab17feebcfba38bd7)
     * delay; задержка в миллисекундах. 0 - это специальное значение, которое означает "навсегда".
 16. cv2.destroyAllWindows() - уничтожает все окна HighGUI. (https://docs.opencv.org/4.x/d7/dfc/group__highgui.html#ga6b7fc1c1a8960438156912027b38f481)
-
+17. cv2.VideoWriter(filename, fourcc, fps, frameSize, isColor = true) - записать видео.(https://docs.opencv.org/4.x/dd/d9e/classcv_1_1VideoWriter.html#ac3478f6257454209fa99249cc03a5c59)
+      * filename: имя выходного видеофайла:
+      * fourcc: 4-символьный код кодека, используемого для сжатия кадров. Например, VideoWriter::fourcc('P','I','M','1') - кодек MPEG-1, VideoWriter::fourcc('M','J','P','G') - кодек motion-jpeg и т.д. Список кодеков можно получить на странице MSDN. Бэкенд FFMPEG с контейнером MP4 нативно использует другие значения как код fourcc: см. ObjectType, поэтому вы можете получить предупреждение от OpenCV о преобразовании кода fourcc;
+      * fps: фреймрейт создаваемого видеопотока; 
+      * frameSize: размер видеокадров; 
+      * isColor: если значение не равно нулю, кодер будет ожидать и кодировать цветные кадры, в противном случае он будет работать с полутоновыми кадрами.
 ---
 
 #### Методы keras и tensorflow
