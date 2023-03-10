@@ -18,7 +18,7 @@ CONTOUR_IDX = -1
 RECTANGLE_THICKNESS = 3
 
 PATH_TO_SAVE = "resources/dataset/"
-person = "SLAVA"
+person = "SACHA1"
 video = "videos/"
 photo = "photo/"
 
