@@ -3,8 +3,9 @@ import numpy as np
 import mediapipe as mp
 import os
 
-DATA_PATH = os.path.join('Holistic_Data_VIDEO')
+DATA_PATH = os.path.join('Holistic_Data')
 CUT_VIDEOS_PATH = os.path.join('cut')
+PHOTO_PATH = os.path.join('photos')
 LANDMARK_THICKNESS = 2
 
 numbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
@@ -64,6 +65,39 @@ def extract_keypoints(results):
         21 * 3)
 
     return np.concatenate([pose, left_hand, right_hand])
+
+
+def extact_keypoints_from_photo():
+    if not os.path.exists(DATA_PATH):
+        os.mkdir(DATA_PATH)
+
+    for number in numbers:
+        path = os.path.join(DATA_PATH, number)
+        if not os.path.exists(path):
+            os.mkdir(path)
+
+    for number in numbers:
+        folder_path = os.path.join(PHOTO_PATH, number)
+        photos_name = [f for f in os.listdir(folder_path)]
+
+        for file_name in photos_name:
+
+            # установить модель mediapipe
+            with mp_holistic.Holistic(static_image_mode=True, min_detection_confidence=0.6) as holistic:
+                file = os.path.join(PHOTO_PATH, number, file_name)
+
+                original_image = cv2.imread(file)
+
+                image, results = mediapipe_detection(original_image, holistic)
+                print(results)
+
+                # нарисовать аннотации
+                draw_styled_landmarks(image, results)
+
+                # экспортировать ключевых точек
+                keypoints = extract_keypoints(results)
+                npy_path = os.path.join(DATA_PATH, number, file_name.replace('.png', ''))
+                np.save(npy_path, keypoints)
 
 
 def extract_keypoints_from_video():
@@ -129,4 +163,4 @@ def extract_keypoints_from_video():
 
 
 if __name__ == "__main__":
-    extract_keypoints_from_video()
+    extact_keypoints_from_photo()
