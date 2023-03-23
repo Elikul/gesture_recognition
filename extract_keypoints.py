@@ -1,19 +1,25 @@
+import json
+
 import cv2
 import numpy as np
 import mediapipe as mp
 import os
 
-DATA_PATH = os.path.join('Holistic_Data')
+DATA_PATH = os.path.join('Hands_Data')
 CUT_VIDEOS_PATH = os.path.join('cut')
 PHOTO_PATH = os.path.join('photos')
+HANDS_PATH = os.path.join('mediapipe_photo')
 LANDMARK_THICKNESS = 2
 
 numbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 videos = {'ALY': 2, 'ELINA': 4, 'ILYA': 4, 'NASTYA': 2, 'NIKITA': 2, 'OLYA': 2, 'POLINA': 2, 'SACHA': 1, 'SACHA_GOL': 2,
-          'SERGEY': 2, 'SLAVA': 3, 'TATYANA': 1, 'TIMOFEY': 2, 'VASYA': 2, 'VITAL': 2, 'WOMAN': 2}
+          'SERGEY': 2, 'SLAVA': 3, 'TATYANA': 1, 'TIMOFEY': 2, 'VASYA': 2, 'WOMAN': 2}
 
-mp_holistic = mp.solutions.holistic
+interaction_type = {'-1': 'none', '1': 'close', '0': 'far'}
+
 mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+mp_hands = mp.solutions.hands
 
 
 def mediapipe_detection(image, model):
@@ -34,70 +40,124 @@ def mediapipe_detection(image, model):
 
 
 def draw_styled_landmarks(image, results):
-    mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS,
-                              mp_drawing.DrawingSpec(color=(80, 22, 10), thickness=LANDMARK_THICKNESS, circle_radius=4),
-                              mp_drawing.DrawingSpec(color=(80, 44, 121), thickness=LANDMARK_THICKNESS, circle_radius=2)
-                              )
-
-    mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS,
-                              mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=LANDMARK_THICKNESS,
-                                                     circle_radius=4),
-                              mp_drawing.DrawingSpec(color=(121, 44, 250), thickness=LANDMARK_THICKNESS,
-                                                     circle_radius=2)
-                              )
-
-    mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS,
-                              mp_drawing.DrawingSpec(color=(245, 117, 66), thickness=LANDMARK_THICKNESS,
-                                                     circle_radius=4),
-                              mp_drawing.DrawingSpec(color=(245, 66, 230), thickness=LANDMARK_THICKNESS,
-                                                     circle_radius=2)
-                              )
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            mp_drawing.draw_landmarks(
+                image,
+                hand_landmarks,
+                mp_hands.HAND_CONNECTIONS,
+                mp_drawing_styles.get_default_hand_landmarks_style(),
+                mp_drawing_styles.get_default_hand_connections_style())
 
 
-def extract_keypoints(results):
-    pose = np.array([[res.x, res.y, res.z, res.visibility] for res in
-                     results.pose_landmarks.landmark]).flatten() if results.pose_landmarks else np.zeros(33 * 4)
-    left_hand = np.array([[res.x, res.y, res.z] for res in
-                          results.left_hand_landmarks.landmark]).flatten() if results.left_hand_landmarks else np.zeros(
-        21 * 3)
-    right_hand = np.array([[res.x, res.y, res.z] for res in
-                           results.right_hand_landmarks.landmark]).flatten() if results.right_hand_landmarks else np.zeros(
-        21 * 3)
-
-    return np.concatenate([pose, left_hand, right_hand])
+def extract_keypoints(results, frame_width, frame_height):
+    output = []
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            output.append([hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_TIP].x * frame_width,
+                           hand_landmarks.landmark[
+                               mp_hands.HandLandmark.RING_FINGER_TIP].y * frame_height] if hand_landmarks else np.zeros(
+                21 * 3))
+    return np.array(output)
 
 
 def extact_keypoints_from_photo():
     if not os.path.exists(DATA_PATH):
         os.mkdir(DATA_PATH)
 
+    if not os.path.exists(HANDS_PATH):
+        os.mkdir(HANDS_PATH)
+
     for number in numbers:
-        path = os.path.join(DATA_PATH, number)
-        if not os.path.exists(path):
-            os.mkdir(path)
+        path1 = os.path.join(DATA_PATH, number)
+        path2 = os.path.join(HANDS_PATH, number)
+        if not os.path.exists(path1):
+            os.mkdir(path1)
+        if not os.path.exists(path2):
+            os.mkdir(path2)
 
     for number in numbers:
         folder_path = os.path.join(PHOTO_PATH, number)
         photos_name = [f for f in os.listdir(folder_path)]
 
-        for file_name in photos_name:
-
-            # установить модель mediapipe
-            with mp_holistic.Holistic(static_image_mode=True, min_detection_confidence=0.6) as holistic:
+        # установить модель mediapipe
+        with mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.6) as hands:
+            for file_name in photos_name:
                 file = os.path.join(PHOTO_PATH, number, file_name)
 
-                original_image = cv2.imread(file)
+                image = cv2.flip(cv2.imread(file), 1)
+                results = hands.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-                image, results = mediapipe_detection(original_image, holistic)
-                print(results)
+                if results is None or results.multi_hand_landmarks is None:
+                    print('NO DATA for ', file_name)
+                else:
+                    image_height, image_width, _ = image.shape
+                    annotated_image = image.copy()
 
-                # нарисовать аннотации
-                draw_styled_landmarks(image, results)
+                    lm = []
 
-                # экспортировать ключевых точек
-                keypoints = extract_keypoints(results)
-                npy_path = os.path.join(DATA_PATH, number, file_name.replace('.png', ''))
-                np.save(npy_path, keypoints)
+                    for hand_landmarks in results.multi_hand_landmarks:
+                        for i in range(21):
+                            lm.append([hand_landmarks.landmark[i].x, hand_landmarks.landmark[i].y,
+                                       hand_landmarks.landmark[i].z])
+
+                        mp_drawing.draw_landmarks(
+                            annotated_image,
+                            hand_landmarks,
+                            mp_hands.HAND_CONNECTIONS,
+                            mp_drawing_styles.get_default_hand_landmarks_style(),
+                            mp_drawing_styles.get_default_hand_connections_style())
+                        cv2.imwrite(
+                            os.path.join(HANDS_PATH, number, file_name), cv2.flip(annotated_image, 1))
+
+                        path_coord = os.path.join(DATA_PATH, number, file_name.replace('.png', '') + ".json")
+                        if len(results.multi_handedness) == 1 or (len(results.multi_handedness) == 2 and len(lm) == 42):
+                            with open(path_coord, 'w') as jf:
+                                intr_type = interaction_type['-1']
+                                if len(results.multi_handedness) == 2 and len(lm) == 42:
+                                    max_x, max_y = 0, 0
+                                    min_x, min_y = 100, 100
+                                    print('Two hands')
+                                    for coord in lm:
+                                        if coord[0] > max_x:
+                                            max_x = coord[0]
+                                        if coord[0] < min_x:
+                                            min_x = coord[0]
+                                        if coord[1] > max_y:
+                                            max_y = coord[1]
+                                        if coord[1] < min_y:
+                                            min_y = coord[1]
+
+                                    dx, dy = max_x - min_x, max_y - min_y
+
+                                    for i in range(len(lm)):
+                                        lm[i][0] = (lm[i][0] - min_x) / dx
+                                        lm[i][1] = (lm[i][1] - min_y) / dy
+
+                                    hand1 = np.array(
+                                        [[marks.x, marks.y] for marks in results.multi_hand_landmarks[0].landmark])
+                                    hand2 = np.array(
+                                        [[marks.x, marks.y] for marks in results.multi_hand_landmarks[1].landmark])
+
+                                    center1 = np.mean(hand1, axis=0)
+                                    center2 = np.mean(hand2, axis=0)
+
+                                    distance = np.linalg.norm(center1 - center2)
+                                    print(number, distance)
+                                    if 0 < distance <= 0.3:
+                                        intr_type = interaction_type['1']
+                                    else:
+                                        intr_type = interaction_type['0']
+
+                                #чтоб везде было 42
+                                if len(results.multi_handedness) == 1:
+                                    lm = lm + [[0.0] * 3] * 21
+
+                                json.dump(
+                                    {'num_hands': len(results.multi_handedness), 'landmarks': lm,
+                                     'interaction': intr_type},
+                                    jf)
+                                jf.close()
 
 
 def extract_keypoints_from_video():
@@ -130,7 +190,7 @@ def extract_keypoints_from_video():
                 cap = cv2.VideoCapture(video_path)
 
                 # установить модель mediapipe
-                with mp_holistic.Holistic(min_detection_confidence=0.6, min_tracking_confidence=0.8) as holistic:
+                with mp_hands.Hands(min_detection_confidence=0.6, min_tracking_confidence=0.8) as hands:
 
                     # перебрать каждый кадр
                     for frame_idx in range(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))):
@@ -141,18 +201,20 @@ def extract_keypoints_from_video():
                             break
 
                         # определить ориентиры
-                        image, results = mediapipe_detection(frame, holistic)
+                        image, results = mediapipe_detection(frame, hands)
                         print(results)
 
                         # нарисовать аннотации
                         draw_styled_landmarks(image, results)
 
+                        frame_height, frame_width, z = image.shape
+
                         # экспортировать ключевых точек
-                        keypoints = extract_keypoints(results)
+                        keypoints = extract_keypoints(results, frame_width, frame_height)
                         npy_path = os.path.join(DATA_PATH, number, video_name, str(video_idx), str(frame_idx))
                         np.save(npy_path, keypoints)
 
-                        cv2.imshow('MediaPipe Holistic', image)
+                        cv2.imshow('MediaPipe Hands', image)
 
                         if cv2.waitKey(5) & 0xFF == 27:  # Esc
                             break
