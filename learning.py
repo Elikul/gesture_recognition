@@ -10,8 +10,8 @@ from tensorflow.keras.layers import Dense, Flatten
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 
 DATA_PATH = "Hands_Data"
+MODEL_PATH = "model"
 numbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
-interaction_type = {'none': [-1, -1, -1], 'close': [1, 1, 1], 'far': [0, 0, 0]}
 label_map = {label: num for num, label in enumerate(numbers)}
 
 
@@ -25,7 +25,7 @@ def load_data():
         for data_file in json_datas:
             with open(os.path.join(DATA_PATH, number, data_file), 'r') as jf:
                 data = json.load(jf)
-                X.append(data['landmarks'] + [interaction_type[data["interaction"]]])
+                X.append(data['landmarks'])
                 y.append(label_map[number])
 
     return X, y
@@ -36,6 +36,7 @@ def prepare_data():
     X = np.array(X)
     y = to_categorical(y).astype(int)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=True)
+    print(X_train.shape)
     return X_train, X_test, y_train, y_test
 
 
@@ -69,19 +70,39 @@ def predict(model, test_x, test_y):
     print(np.argmax(predictions[16]), np.argmax(test_y[16]))
 
 
-if __name__ == "__main__":
-    X_train, X_test, y_train, y_test = prepare_data()
-    model = create_model()
-    history_fit = learn(model, X_train, y_train)
+def save_model(model):
+    if not os.path.exists(MODEL_PATH):
+        os.mkdir(MODEL_PATH)
+    model.save(os.path.join(MODEL_PATH, 'my_model'))
+    model.save_weights(os.path.join(MODEL_PATH, 'weights'))
 
-    fig = plt.figure(figsize=(20, 10))
+
+def draw_history():
+    fig1 = plt.figure(figsize=(20, 10))
     plt.title("Train - Validation Accuracy")
     plt.plot(history_fit.history['accuracy'], label='train')
     plt.plot(history_fit.history['val_accuracy'], label='validation')
     plt.xlabel('num_epochs', fontsize=12)
     plt.ylabel('accuracy', fontsize=12)
     plt.legend(loc='best')
-    plt.show()
+    plt.savefig('accuracy.png')
 
+    fig2 = plt.figure(figsize=(20, 10))
+    plt.title("Train - Validation Loss")
+    plt.plot(history_fit.history['loss'], label='train')
+    plt.plot(history_fit.history['val_loss'], label='validation')
+    plt.xlabel('num_epochs', fontsize=12)
+    plt.ylabel('loss', fontsize=12)
+    plt.legend(loc='best')
+    plt.savefig('loss.png')
+
+
+if __name__ == "__main__":
+    X_train, X_test, y_train, y_test = prepare_data()
+    model = create_model()
+    history_fit = learn(model, X_train, y_train)
+
+    draw_history()
+    save_model(model)
     evaluate(model, X_test, y_test)
     predict(model, X_test, y_test)
