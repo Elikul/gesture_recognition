@@ -1,2 +1,7 @@
 .idea
-.videos
+.ipynb_checkpoints
+cut
+videos
+Hands_Data
+mediapipe_photo
+photos
