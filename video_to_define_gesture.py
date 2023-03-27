@@ -23,11 +23,12 @@ WINDOW_WIDTH = 1024
 WINDOW_HEIGHT = 720
 THICKNESS_CONTOUR = 1
 
-label_map = {0: '1', 1: '2', 2: '3', 3: '4', 4: '5', 5: '6', 6: '7', 7: '8', 8: '9', 9: '10'}
+# label_map = {0: '1', 1: '2', 2: '3', 3: '4', 4: '5', 5: '6', 6: '7', 7: '8', 8: '9', 9: '10'}
+label_map = {0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9'}
 
 
 def load_model():
-    model = tf.keras.models.load_model('model/my_model')
+    model = tf.keras.models.load_model('model/my_model_asl')
     return model
 
 
@@ -53,20 +54,20 @@ def define_digit_on_frame(hands, frame, model):
         if len(hands.multi_hand_landmarks) == 1 or (
                 len(hands.multi_hand_landmarks) == 2 and len(lm) == 42):
 
-            if len(hands.multi_hand_landmarks) == 2 and len(lm) == 42:
-                max_x, min_x, max_y, min_y = find_delta_xy(lm)
-
-                dx, dy = max_x - min_x, max_y - min_y
-
-                for i in range(len(lm)):
-                    lm[i][0] = (lm[i][0] - min_x) / dx
-                    lm[i][1] = (lm[i][1] - min_y) / dy
-
-                lm = lm + [get_position_wrists(hands)]
-
-            # чтоб везде было 42
-            if len(hands.multi_hand_landmarks) == 1:
-                lm = lm + [[0.0] * 3] * 22
+            # if len(hands.multi_hand_landmarks) == 2 and len(lm) == 42:
+            #     max_x, min_x, max_y, min_y = find_delta_xy(lm)
+            #
+            #     dx, dy = max_x - min_x, max_y - min_y
+            #
+            #     for i in range(len(lm)):
+            #         lm[i][0] = (lm[i][0] - min_x) / dx
+            #         lm[i][1] = (lm[i][1] - min_y) / dy
+            #
+            #     lm = lm + [get_position_wrists(hands)]
+            #
+            # # чтоб везде было 42
+            # if len(hands.multi_hand_landmarks) == 1:
+            #     lm = lm + [[0.0] * 3] * 22
 
             prediction = model.predict([lm])
             return label_map[np.argmax(prediction)]

@@ -10,20 +10,22 @@ from tensorflow.keras.layers import Dense, Flatten
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 
 DATA_PATH = "Hands_Data"
+ASL_PATH = "ASL_Hands_Data"
 MODEL_PATH = "model"
 numbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
-label_map = {label: num for num, label in enumerate(numbers)}
+asl_numbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+label_map = {label: num for num, label in enumerate(asl_numbers)}
 
 
 def load_data():
     X = []
     y = []
 
-    for number in numbers:
-        data_path = os.path.join(DATA_PATH, number)
+    for number in asl_numbers:
+        data_path = os.path.join(ASL_PATH, number)
         json_datas = [f for f in os.listdir(data_path)]
         for data_file in json_datas:
-            with open(os.path.join(DATA_PATH, number, data_file), 'r') as jf:
+            with open(os.path.join(ASL_PATH, number, data_file), 'r') as jf:
                 data = json.load(jf)
                 X.append(data['landmarks'])
                 y.append(label_map[number])
@@ -42,7 +44,7 @@ def prepare_data():
 
 def create_model():
     model = Sequential()
-    model.add(Dense(43 * 3, activation='relu', input_shape=(43, 3)))
+    model.add(Dense(21 * 3, activation='relu', input_shape=(21, 3)))
     model.add(Flatten())
     model.add(Dense(128, activation='relu'))
     model.add(Dense(256, activation='relu'))
@@ -73,8 +75,8 @@ def predict(model, test_x, test_y):
 def save_model(model):
     if not os.path.exists(MODEL_PATH):
         os.mkdir(MODEL_PATH)
-    model.save(os.path.join(MODEL_PATH, 'my_model'))
-    model.save_weights(os.path.join(MODEL_PATH, 'weights'))
+    model.save(os.path.join(MODEL_PATH, 'my_model_asl'))
+    model.save_weights(os.path.join(MODEL_PATH, 'weights_asl'))
 
 
 def draw_history():
