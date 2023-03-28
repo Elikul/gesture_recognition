@@ -76,7 +76,7 @@ def extract_keypoints_from_photo():
 
                         draw_landmarks(annotated_image, hand_landmarks, number, file_name)
 
-                        path_coord = os.path.join(ASL_PATH, number, file_name.replace('.png', '') + ".json")
+                        path_coord = os.path.join(ASL_PATH, number, file_name.replace('.jpeg', '') + ".json")
 
                         if len(results.multi_hand_landmarks) == 1 or (
                                 len(results.multi_hand_landmarks) == 2 and len(lm) == 42):
